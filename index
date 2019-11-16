@@ -1,0 +1,62 @@
+var args = require('system').args;
+var page = require('webpage').create();
+var fs = require('fs');
+
+// args[1] = 'com.bukalapak.android'
+// args[2] = 'protected/com.bukalapak.android.json'
+// args[3] = 12
+
+const monthNames = ["January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
+];
+var link = 'https://play.google.com/store/apps/details?id=' + args[1] + '&showAllReviews=true', 
+    output = args[2], months = args[3];
+
+console.log(new Date())
+page.settings.loadImages = false;
+page.open(link, function(status) {
+    page.includeJs("http://ajax.googleapis.com/ajax/libs/jquery/1.6.1/jquery.min.js", function() {
+        page.evaluate(function() { $('[jsname="LgbsSe"]').trigger('click'); })
+        setTimeout (function () {
+            var test = page.evaluate(function() { return $('[jsname="V68bde"]').html() != ''; })
+            if (test) {
+                page.evaluate(function() { $('[jsname="V68bde"] [data-value="2"]').trigger('click') });
+                setTimeout (function () {
+                    setInterval (function () {
+                        var lastReview = page.evaluate(function () {
+                            window.document.body.scrollTop = document.body.scrollHeight;
+                            $('.CwaK9').trigger('click')
+
+                            return $('[jsname="fk8dgd"] > [jscontroller]:last').find('.p2TkOb').html()
+                        })
+                        var dateNow = new Date ()
+                        var dateLast = new Date (Date.parse(lastReview))
+                        var daysDiff = (dateNow.getTime() - dateLast.getTime()) / (1000 * 3600 * 24)
+                        console.log(dateLast.getDate() + ' ' + monthNames[dateLast.getMonth()] + ' ' + dateLast.getFullYear())
+                        if (daysDiff >= (months * 30)) {
+                            var jsonResult = page.evaluate(function() { 
+                                var res = []
+                                $('[jsname="fk8dgd"] > [jscontroller]').each(function (i, val) {
+                                    var name = $(this).find('.X43Kjb').html()
+                                    var date = $(this).find('.p2TkOb').html()
+                                    var star = $(this).find('.vQHuPe.bUWb7c').length
+                                    var comment = $(this).find('[jsname="bN97Pc"]').text()
+                                    res.push({
+                                        name: name,
+                                        date: date,
+                                        star: star,
+                                        comment: comment
+                                    });
+                                });
+                                return JSON.stringify(res);
+                            });
+                            fs.write(output, jsonResult, 'w');
+                            console.log(new Date())
+                            phantom.exit();
+                        }
+                    }, 100)
+                }, 1000)
+            }
+        }, 1000)
+    })
+});
